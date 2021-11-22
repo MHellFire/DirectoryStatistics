@@ -8,84 +8,85 @@
 
 class ThreadPool
 {
-public:
-	using Task = std::function<void()>;
+	public:
+		explicit ThreadPool(std::size_t);
+		~ThreadPool();
 
-	explicit ThreadPool(std::size_t numThreads)
-	{
-		start(numThreads);
-	}
+		template<class T, class... Args>
+		auto enqueue(T&& task, Args&&... args)->std::future<decltype(task(args...))>;
 
-	~ThreadPool()
-	{
-		stop();
-	}
+	private:
 
-	//template<class T>
-	template<class T, class... Args>
-	//	auto enqueue(T task)->std::future<decltype(task())>
-	auto enqueue(T&& task, Args&&... args)->std::future<decltype(task(args...))>
-	{
-		auto wrapper = std::make_shared <std::packaged_task <decltype(task(args...)) () > >(std::bind(std::forward<T>(task), std::forward<Args>(args)...));
-
-		{
-			std::unique_lock<std::mutex> lock{ eventMutex };
-			tasksQueue.emplace([=] {
-				(*wrapper)();
-				});
-		}
-
-		eventVar.notify_one();
-		return wrapper->get_future();
-	}
-
-private:
-	std::vector<std::thread> threads;
-
-	std::condition_variable eventVar;
-
-	std::mutex eventMutex;
-	bool stopping = false;
-
-	std::queue<Task> tasksQueue;
-
-	void start(std::size_t numThreads)
-	{
-		for (auto i = 0u; i < numThreads; ++i)
-		{
-			threads.emplace_back([=] {
-				while (true)
-				{
-					Task task;
-
-					{
-						std::unique_lock<std::mutex> lock{ eventMutex };
-
-						eventVar.wait(lock, [=] { return stopping || !tasksQueue.empty(); });
-
-						if (stopping && tasksQueue.empty())
-							break;
-
-						task = std::move(tasksQueue.front());
-						tasksQueue.pop();
-					}
-
-					task();
-				}
-				});
-		}
-	}
-
-	void stop() noexcept
-	{
-		{
-			std::unique_lock<std::mutex> lock{ eventMutex };
-			stopping = true;
-		}
-
-		eventVar.notify_all();
-
-		for (auto& thread : threads)
-			thread.join();
-	}
+		using Task = std::function<void()>;
+		//  the thread pool 
+		std::vector<std::thread> threadPool;
+		// tasks queue
+		std::queue<Task> tasksQueue;
+		std::condition_variable eventVar;
+		std::mutex eventMutex;
+		std::atomic<bool> stoped;
 };
+
+ThreadPool::ThreadPool(std::size_t numThreads) : stoped(false)
+{
+	for (size_t i = 0; i < numThreads; ++i)
+	{
+		threadPool.emplace_back([=] {
+			while (true)
+			{
+				Task task;
+
+				{
+					std::unique_lock<std::mutex> lock{ eventMutex };
+
+					eventVar.wait(lock, [=] {
+						return stoped || !tasksQueue.empty();
+						});
+
+					// wait until there is task
+					if (stoped && tasksQueue.empty())
+						break;
+
+					// take one, first task
+					task = std::move(tasksQueue.front());
+					tasksQueue.pop();
+				}
+
+				// run task
+				task();
+			}
+			});
+	}
+}
+
+ThreadPool::~ThreadPool()
+{
+	{
+		std::unique_lock<std::mutex> lock{ eventMutex };
+		stoped = true;
+	}
+
+	eventVar.notify_all();
+
+	for (auto& thread : threadPool)
+		thread.join();
+}
+
+template<class T, class... Args>
+
+auto ThreadPool::enqueue(T&& task, Args&&... args)->std::future<decltype(task(args...))>
+{
+	auto wrapper = std::make_shared <std::packaged_task <decltype(task(args...)) () > >(std::bind(std::forward<T>(task), std::forward<Args>(args)...));
+
+	{
+		// add task to the tasks queue
+		std::unique_lock<std::mutex> lock{ eventMutex };
+		tasksQueue.emplace([=] {
+			(*wrapper)();
+			});
+	}
+
+	// unblock one of the waiting threads
+	eventVar.notify_one();
+	return wrapper->get_future();
+}
