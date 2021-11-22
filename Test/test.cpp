@@ -7,14 +7,13 @@ namespace functions {
     TEST(functions, checkCountingLettersWords) {
         auto tmp = std::make_tuple(0, 0, 0);
         tmp = countLettersWords("Ala ma kota!");
-
+        
+        // letters
         EXPECT_EQ(std::get<0>(tmp), 9);
+        // words
         EXPECT_EQ(std::get<1>(tmp), 3);
+        // characters
         EXPECT_EQ(std::get<2>(tmp), 12);
-    }
-
-    TEST(functions, checkAddingPairs) {
-
     }
 
     int main(int argc, char* argv[])

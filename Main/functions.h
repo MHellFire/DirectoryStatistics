@@ -1,19 +1,9 @@
 #pragma once
 
-#include <iostream>
 #include <fstream>
-#include <algorithm>
 #include <string>
 #include <filesystem>
 #include <array>
-
-#include <condition_variable>
-#include <functional>
-#include <future>
-#include <vector>
-#include <thread>
-#include <queue>
-
 
 // function is counting letters, words, characters in given string
 std::tuple<uint64_t, uint64_t, uint64_t> countLettersWords(const std::string& str)
@@ -68,3 +58,87 @@ std::tuple<uint64_t, uint64_t, uint64_t> countLettersWords(const std::string& st
 
 	return std::make_tuple(numLetters, numWords, numCharacters);
 }
+
+// function is counting empty and non-empy lines in given file
+// the newline character is '\n'
+// returns array { empty lines, non-empty lines, letters, words, characters }
+std::array<uint64_t, 5> countLines(const std::filesystem::path& file)
+{
+	// open file in text mode
+	std::ifstream in(file, std::ifstream::in);
+	// open file in binary mode
+	//std::ifstream in(file, std::ifstream::in | std::ifstream::binary);
+
+	// count lines
+	if (in)
+	{
+		unsigned long long int numEmptyLines = 0;
+		unsigned long long int numNonEmptyLines = 0;
+
+		// tuple of letters, words, characters
+		std::tuple<uint64_t, uint64_t, uint64_t> numLettersWords;
+
+		// for "getline" the newline character is '\n'
+		for (std::string line; std::getline(in, line);)
+		{
+			if (line.empty()) // the same as size == 0
+			{
+				// empty lines
+				++numEmptyLines;
+			}
+			else
+			{
+				// non-empty lines
+				++numNonEmptyLines;
+
+				numLettersWords = countLettersWords(line);
+			}
+		}
+
+		in.close();
+
+		// empty lines, non-empty lines, letters, words, characters
+		return { numEmptyLines, numNonEmptyLines, std::get<0>(numLettersWords), std::get<1>(numLettersWords), std::get<2>(numLettersWords) };
+	}
+	else
+	{
+		// error while opening file
+
+		in.close();
+		//std::cout << "Error while opening file: " << file << std::endl;
+
+		// empty lines, non-empty lines, letters, words, characters
+		return { 0, 0, 0, 0, 0 };
+	}
+}
+
+/*
+* void DisplayDirTree(const fs::path& pathToShow, int level)
+{
+    if (fs::exists(pathToShow) && fs::is_directory(pathToShow))
+    {
+        auto lead = std::string(level * 3, ' ');
+        for (const auto& entry : fs::directory_iterator(pathToShow))
+        {
+            auto filename = entry.path().filename();
+            if (fs::is_directory(entry.status()))
+            {
+                cout << lead << "[+] " << filename << "\n";
+                DisplayDirTree(entry, level + 1);
+                cout << "\n";
+            }
+            else if (fs::is_regular_file(entry.status()))
+                DisplayFileInfo(entry, lead, filename);
+            else
+                cout << lead << " [?]" << filename << "\n";
+        }
+    }
+}
+void checkInDirectory (d : directory)
+
+	for each entry e in d             <== recursive exit after last entry in directory
+		if e is a file
+			check_in_file(f)
+		if e is a directory
+			check_in_directory(e)     <== recursive call
+*/

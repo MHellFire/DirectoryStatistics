@@ -144,6 +144,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="functions.h" />
+    <ClInclude Include="threadpool.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
